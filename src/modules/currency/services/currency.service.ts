@@ -1,4 +1,4 @@
-import { HttpService, Injectable } from '@nestjs/common';
+import { HttpService, Injectable, Logger } from '@nestjs/common';
 import { PageMetaDto } from 'common/dtos';
 import { ForeignExchangeRatesNotFoundException } from 'exceptions';
 import {
@@ -10,6 +10,8 @@ import { CurrencyRepository } from 'modules/currency/repositories';
 
 @Injectable()
 export class CurrencyService {
+  private readonly logger = new Logger(CurrencyService.name);
+
   constructor(
     private readonly _currencyRepository: CurrencyRepository,
     private readonly _httpService: HttpService,
@@ -78,40 +80,57 @@ export class CurrencyService {
   }
 
   public async getCurrencyForeignExchangeRates() {
-    const [EUR, USD] = await Promise.all([
-      this.getCurrencyForeignExchangeRatesForEUR(),
-      this.getCurrencyForeignExchangeRatesForUSD(),
-    ]);
+    try {
+      const [EUR, USD] = await Promise.all([
+        this.getCurrencyForeignExchangeRatesForEUR(),
+        this.getCurrencyForeignExchangeRatesForUSD(),
+      ]);
 
-    const midEUR = 1 / ((EUR.rates[0].bid + EUR.rates[0].ask) / 2);
-    const midUSD = 1 / ((USD.rates[0].bid + USD.rates[0].ask) / 2);
+      if (!EUR.rates || !EUR.rates[0] || !USD.rates || !USD.rates[0]) {
+        throw new Error('Invalid response structure from exchange rates API');
+      }
 
-    return [
-      { name: EUR.code, currentExchangeRate: midEUR },
-      { name: USD.code, currentExchangeRate: midUSD },
-    ];
+      const midEUR = 1 / ((EUR.rates[0].bid + EUR.rates[0].ask) / 2);
+      const midUSD = 1 / ((USD.rates[0].bid + USD.rates[0].ask) / 2);
+
+      return [
+        { name: EUR.code, currentExchangeRate: midEUR },
+        { name: USD.code, currentExchangeRate: midUSD },
+      ];
+    } catch (error) {
+      this.logger.error('Error fetching foreign exchange rates', error.stack);
+      throw new ForeignExchangeRatesNotFoundException(error);
+    }
   }
 
   public async getCurrencyForeignExchangeRatesForUSD(): Promise<any> {
-    const endpoint = `https://api.nbp.pl/api/exchangerates/rates/c/usd/today/?format=json`;
+    const endpoint = `https://api.nbp.pl/api/exchangerates/rates/c/usd/2024-07-26/?format=json`;
 
     return this._httpService
       .get(endpoint)
       .toPromise()
-      .then((response) => response.data)
+      .then((response) => {
+        this.logger.debug(`USD exchange rate response: ${JSON.stringify(response.data)}`);
+        return response.data;
+      })
       .catch((error) => {
+        this.logger.error('Error fetching USD exchange rate', error.stack);
         throw new ForeignExchangeRatesNotFoundException(error);
       });
   }
 
   public async getCurrencyForeignExchangeRatesForEUR(): Promise<any> {
-    const endpoint = `https://api.nbp.pl/api/exchangerates/rates/c/eur/today/?format=json`;
+    const endpoint = `https://api.nbp.pl/api/exchangerates/rates/c/eur/2024-07-26/?format=json`;
 
     return this._httpService
       .get(endpoint)
       .toPromise()
-      .then((response) => response.data)
+      .then((response) => {
+        this.logger.debug(`EUR exchange rate response: ${JSON.stringify(response.data)}`);
+        return response.data;
+      })
       .catch((error) => {
+        this.logger.error('Error fetching EUR exchange rate', error.stack);
         throw new ForeignExchangeRatesNotFoundException(error);
       });
   }
