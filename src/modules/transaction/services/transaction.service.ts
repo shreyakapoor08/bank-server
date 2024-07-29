@@ -393,32 +393,18 @@ export class TransactionService {
     return stream;
   }
 
-  // public async htmlToPdfBuffer(html: string): Promise<Buffer> {
-  //   return new Promise((resolve, reject) => {
-  //     pdf.create(html).toBuffer((err, buffer) => {
-  //       if (err) {
-  //         reject(err);
-  //       } else {
-  //         resolve(buffer);
-  //       }
-  //     });
-  //   });
-  // }
-
   public async htmlToPdfBuffer(html: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const options = {
-      phantomPath: require('phantomjs-prebuilt').path, // Set the path to PhantomJS binary
-    };
-    pdf.create(html, options).toBuffer((err, buffer) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(buffer);
-      }
+    return new Promise((resolve, reject) => {
+      pdf.create(html).toBuffer((err, buffer) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(buffer);
+        }
+      });
     });
-  });
-}
+  }
+
 
   private async _getConfirmationFileContent(locale: string): Promise<string> {
     try {
